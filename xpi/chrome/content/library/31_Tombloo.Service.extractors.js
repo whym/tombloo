@@ -975,6 +975,67 @@ Tombloo.Service.extractors = new Repository([
 	},
 	
 	{
+		name: 'HatenaHaiku',
+		getEntry : function(ctx){
+			return $x('./ancestor::div[contains(@class,"entry")]', ctx.target);
+		},
+		getItem : function(ctx, ent){
+			var entry = ent || this.getEntry(ctx);
+			var author = $x('.//span[contains(@class,"username")]/a', entry);
+			return {
+				itemUrl   : 'http://' + ctx.host + $x('.//span[contains(@class,"timestamp")]/a/@href', entry),
+				item      : $x('.//h2[contains(@class,"title")]/a/text()', entry),
+				author    : author.textContent.trim(),
+				authorUrl : author.href
+			};
+		}
+	},
+
+	{
+		name : 'Photo - Hatena Haiku',
+		ICON : 'http://h.hatena.com/favicon.ico',
+		check : function(ctx){
+			return ctx.onImage && ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) && Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
+		},
+		extract : function(ctx){
+			var ps = Tombloo.Service.extractors.HatenaHaiku.getItem(ctx);
+			ps.type = 'photo';
+			ps.author = 'id:' + ps.author;
+			ctx.title = ps.item;
+			ctx.href = ps.itemUrl;
+			return update(ps, Tombloo.Service.extractors.Photo.extract(ctx));
+		},
+	},
+
+	{
+		name : 'Quote - Hatena Haiku',
+		ICON : 'http://h.hatena.com/favicon.ico',
+		check : function(ctx){
+			return ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) &&
+				$x('./ancestor::div[contains(@class,"entry")]', ctx.target);
+		},
+		extract : function(ctx){
+			var entry = Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
+			return (ctx.selection?
+				succeed(ctx.selection) :
+				request(ctx.href).addCallback(function(res){
+					var doc = convertToHTMLDocument(res.responseText);
+					return $x('.//div[contains(@class,"body") and not(contains(@class,"list-body"))]',entry).innerHTML;
+				})
+			).addCallback(function(body){
+				var ps = Tombloo.Service.extractors.HatenaHaiku.getItem(ctx, entry);
+				ctx.href = ps.itemUrl;
+				return {
+					type    : 'quote',
+					body    : body.trim(),
+					item    : ps.item + ' - ' + ps.author,
+					itemUrl : ps.itemUrl
+				};
+			});
+		},
+	},
+	
+	{
 		name : 'Photo - covered',
 		ICON : 'chrome://tombloo/skin/photo.png',
 		check : function(ctx){
