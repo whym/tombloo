@@ -310,6 +310,8 @@ function setCookie(channel){
  *        サーバーへ送信するファイル名。指定されない場合、元のファイル名が使われる。
  * @param {String} opts.KEY.contentType 
  *        コンテントタイプ。指定されない場合、application/octet-streamになる。
+ * @param {String} opts.authorization
+ *        認証文字列。リクエストヘッダ Authorization に直接追加される。
  */
 function request(url, opts){
 	var d = new Deferred();
@@ -321,7 +323,10 @@ function request(url, opts){
 	
 	if(opts.referrer)
 		channel.referrer = createURI(opts.referrer);
-	
+
+	if(opts.authorization)
+		channel.setRequestHeader('Authorization', opts.authorization, true);
+
 	setCookie(channel);
 	
 	if(opts.sendContent){
