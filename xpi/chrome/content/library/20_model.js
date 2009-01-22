@@ -1615,9 +1615,9 @@ models.register(update({
 	},
 	
 	reprTags: function (tags) {
-		return tags ? tags.map(function(t){
+		return tags ? joinText(tags.map(function(t){
 			return '[' + t + ']';
-		}).join('') : '' ;
+		}), '', true) : '' ;
 	},
 }, AbstractSessionService));
 
@@ -1862,19 +1862,44 @@ models.register({
 	},
 	post : function(ps){
 		return this.getToken().addCallback(function(token){
-			var body;
-			var tags = joinText(ps.tags, '][', false);
-			if (tags)
-				tags = '['+tags+'] ';
+			if (!ps.description)
+				ps.description = '';
+
+			// コマンド文字列のエスケープ
 			ps.item = ps.item.replace(/=/g,'&#61').replace(/@/g,'&#64');
-			if(ps.type == 'quote' || ps.type == 'link' || ps.type == 'regular') {
+
+			// 先頭タグをはてなハイクキーワードに使う。タグがなければ個人用キーワード。
+			var haikukeyword = 'id:' + token.username;
+			if (ps.tags) {
+				haikukeyword = ps.tags.shift();
+				ps.tags = Hatena.reprTags(ps.tags);
+			} else {
+				ps.tags = '';
+			}
+
+			var body;
+			if (ps.type == 'regular') {
 				body = joinText([
-					ps.itemUrl? ('[' + ps.itemUrl + ':title='+ ps.item + "]"): ps.item,
+					ps.item,
+					ps.tags,
+					ps.description
+				], "\n", true);
+			} else if(ps.type == 'quote' || ps.type == 'link' || ps.type == 'regular') {
+				body = joinText([
+					ps.itemUrl? ('[' + ps.itemUrl + ':title='+ ps.item + ']'): ps.item,
+					' ',
 					ps.body? ">>\n"+ps.body+"\n<<": '',
-					tags + ps.description
+					ps.tags,
+					ps.description
 				], "\n", true);
 			} else if (ps.type == 'photo') {
-				body = joinText([ps.itemUrl, (ps.pageUrl? '['+ps.pageUrl+':title='+ps.page+']': ps.item), ' ', ps.body, ps.description], "\n", true);
+				body = joinText([
+					ps.itemUrl,
+					ps.pageUrl? '['+ps.pageUrl+':title='+ps.page+']': ps.item,
+					' ',
+					ps.tags,
+					ps.body,
+					ps.description], "\n", true);
 			} else {
 				body = joinText([ps.itemUrl, ps.item, ' ', ps.body, ps.description], "\n", true);
 			}
@@ -1883,7 +1908,7 @@ models.register({
 				authorization: 'Basic '+window.btoa(token.username+':'+token.token),
 				sendContent : update({
 					status  : body,
-					keyword : 'id:' + token.username,
+					keyword : haikukeyword,
 					file    : ps.file,
 					source  : 'tombloo'
 				},token),
