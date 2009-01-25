@@ -287,7 +287,7 @@ function putContents(file, text, charset){
 		stream.write(text, text.length);
 	});
 }
-	
+
 /**
  * チャンネルにクッキーを付加する。
  *
@@ -332,7 +332,7 @@ function request(url, opts){
 	
 	if(opts.referrer)
 		channel.referrer = createURI(opts.referrer);
-
+	
 	if(opts.authorization)
 		channel.setRequestHeader('Authorization', opts.authorization, true);
 
@@ -513,6 +513,9 @@ function request(url, opts){
 	return d;
 }
 
+function expandFormat(format){
+	return "\'" + format.replace(/([\'\"])/g, function(s){return '\\'+s;}).replace(/{/g,"\'+(").replace(/}/g,")+\'").replace(/\n/mg,'\'+\"\\n\"+\'') + "\'";
+}
 
 // ----[MochiKit]-------------------------------------------------
 var StopProcess = {};
@@ -868,6 +871,14 @@ Array.prototype = update(Array.prototype, {
 	},
 });
 
+String.prototype = update(String.prototype, {
+	md5bin: function(charset){
+		var crypto = new CryptoHash(CryptoHash.MD5);
+		var data = this.toByteArray(charset || "UTF-8");
+		crypto.update(data, data.length);
+		return crypto.finish(true);
+	}
+});
 
 // ----[General]-------------------------------------------------
 function debug(msg){

@@ -984,37 +984,49 @@ Tombloo.Service.extractors = new Repository([
 		getItem : function(ctx, ent){
 			var entry = ent || this.getEntry(ctx);
 			var author = $x('.//span[contains(@class,"username")]/a', entry);
+			var username = author.textContent.trim();
 			return {
 				itemUrl   : 'http://' + ctx.host + $x('.//span[contains(@class,"timestamp")]/a/@href', entry),
-				item      : $x('.//h2[contains(@class,"title")]/a/text()', entry),
-				author    : author.textContent.trim(),
+				item      : $x('.//h2[contains(@class,"title")]/a/text()', entry) + ' - ' + username,
+				author    : username,
 				authorUrl : author.href
 			};
 		}
 	},
 
 	{
-		name : 'Photo - Hatena Haiku',
+		name : 'Link - HatenaHaiku',
+		ICON : 'http://h.hatena.com/favicon.ico',
+		check : function(ctx){
+			return ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) && Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
+		},
+		extract : function(ctx){
+			var ps = Tombloo.Service.extractors.HatenaHaiku.getItem(ctx);
+			ps.type = 'link';
+			ctx.title = ps.item;
+			ctx.href = ps.itemUrl;
+			return ps;
+		},
+	},
+
+	{
+		name : 'Photo - HatenaHaiku',
 		ICON : 'http://h.hatena.com/favicon.ico',
 		check : function(ctx){
 			return ctx.onImage && ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) && Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
 		},
 		extract : function(ctx){
-			var ps = Tombloo.Service.extractors.HatenaHaiku.getItem(ctx);
-			ps.type = 'photo';
-			ps.author = 'id:' + ps.author;
-			ctx.title = ps.item;
-			ctx.href = ps.itemUrl;
-			return update(ps, Tombloo.Service.extractors.Photo.extract(ctx));
+			return update({
+				type : 'link',
+			}, Tombloo.Service.extractors.HatenaHaiku.getItem(ctx));
 		},
 	},
 
 	{
-		name : 'Quote - Hatena Haiku',
+		name : 'Quote - HatenaHaiku',
 		ICON : 'http://h.hatena.com/favicon.ico',
 		check : function(ctx){
-			return ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) &&
-				$x('./ancestor::div[contains(@class,"entry")]', ctx.target);
+			return ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) && Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
 		},
 		extract : function(ctx){
 			var entry = Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
@@ -1022,17 +1034,13 @@ Tombloo.Service.extractors = new Repository([
 				succeed(ctx.selection) :
 				request(ctx.href).addCallback(function(res){
 					var doc = convertToHTMLDocument(res.responseText);
-					return $x('.//div[contains(@class,"body") and not(contains(@class,"list-body"))]',entry).innerHTML;
+					return $x('.//div[contains(@class,"body") and not(contains(@class,"list-body"))]',entry).innerHTML.replace(/<br>/gi, "\n").trimTag();
 				})
 			).addCallback(function(body){
-				var ps = Tombloo.Service.extractors.HatenaHaiku.getItem(ctx, entry);
-				ctx.href = ps.itemUrl;
-				return {
+				return update({
 					type    : 'quote',
 					body    : body.trim(),
-					item    : ps.item + ' - ' + ps.author,
-					itemUrl : ps.itemUrl
-				};
+				}, Tombloo.Service.extractors.HatenaHaiku.getItem(ctx, entry));
 			});
 		},
 	},
