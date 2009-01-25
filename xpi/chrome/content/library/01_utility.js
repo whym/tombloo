@@ -332,7 +332,7 @@ function request(url, opts){
 	
 	if(opts.referrer)
 		channel.referrer = createURI(opts.referrer);
-
+	
 	if(opts.authorization)
 		channel.setRequestHeader('Authorization', opts.authorization, true);
 
