@@ -643,7 +643,6 @@ models.register({
 			
 			return {
 				authenticity_token : html.extract(/authenticity_token.+value="(.+?)"/),
-				siv                : html.extract(/logout\?siv=(.+?)"/),
 			}
 		});
 	},
@@ -1587,11 +1586,10 @@ models.register(update({
 				return succeed(this.token);
 			
 		case 'changed':
-			var self = this;
-			return request('http://d.hatena.ne.jp/edit').addCallback(function(res){
-				if(res.responseText.match(/\srkm\s*:\s*['"](.+?)['"]/))
-					return self.token = RegExp.$1;
-			});
+			var ck = Hatena.getAuthCookie();
+			if(!ck)
+				throw new Error(getMessage('error.notLoggedin'));
+			return succeed(this.token = ck.substr(3).md5bin().replace('==',''));
 		}
 	},
 	
@@ -1608,13 +1606,13 @@ models.register(update({
 			var self = this;
 			return request('http://www.hatena.ne.jp/my').addCallback(function(res){
 				return self.user = $x(
-					'(//*[@class="username"]//strong)[1]/text()', 
+					'(//*[@class="welcome"]/a)[1]/text()', 
 					convertToHTMLDocument(res.responseText));
 			});
 		}
 	},
 	
-	reprTags: function (tags) {
+	reprTags: function (tags){
 		return tags ? joinText(tags.map(function(t){
 			return '[' + t + ']';
 		}), '', true) : '' ;
@@ -1642,16 +1640,21 @@ models.register({
 	// image1 - image5
 	// fototitle1 - fototitle5 (optional)
 	upload : function(ps){
+		var user;
 		return Hatena.getToken().addCallback(function(token){
 			ps.rkm = token;
 			
 			return Hatena.getCurrentUser();
-		}).addCallback(function(user){
+		}).addCallback(function(user_){
+			user = user_;
 			return request('http://f.hatena.ne.jp/'+user+'/up', {
 				sendContent : update({
 					mode : 'enter',
 				}, ps),
 			});
+		}).addCallback(function(res){
+			if(!res.channel.URI.asciiSpec.match('/'+user+'/edit'))
+				throw new Error(getMessage('error.post','returned URI is '+res.channel.URI.asciiSpec));
 		});
 	},
 });
@@ -1754,43 +1757,107 @@ models.register( {
 	ICON: 'http://d.hatena.ne.jp/favicon.ico',
 	POST_URL : 'http://d.hatena.ne.jp',
 	
-	/*
 	check : function(ps){
-		return (/(regular|photo|quote|link)/).test(ps.type) && !ps.file;
+		return (/(regular|photo|quote|link)/).test(ps.type);
 	},
-	*/
+	getTitle : function(ps){
+		return Hatena.reprTags(ps.tags) + (ps.item || ps.page || '');
+	},
 	converters: {
-		getTitle: function(ps){
-			return Hatena.reprTags(ps.tags) + (ps.page || '')
-		},
 		renderingTemplates: {
-			regular: '<p>{ps.description}</p>',
-			photo: '<p><blockquote class="tombloo_photo" cite={ps.pageUrl} title={ps.page}><img src={ps.itemUrl} /></blockquote>{ps.description}</p>',
-			link: '<p><div class="tombloo_link"><a href={ps.pageUrl} title={ps.page}>{ps.page}</a></div>{ps.description}</p>',
-			quote: '<p><blockquote class="tombloo_quote" cite={ps.pageUrl} title={ps.page}>{ps.body}</blockquote>{ps.description}</p>',
+			regular: ['*{ps.title}','{ps.description}'],
+			photo: ['*{ps.title}',
+					'>{ps.pageUrl}:title>',
+					'[{ps.itemUrl}:image]',
+					'<<',
+					'{ps.description}'],
+			link: ['*{ps.title}','[{ps.pageUrl}:title]','{ps.description}'],
+			quote: ['*{ps.title}',
+					'>{ps.itemUrl}:title>',
+					'{ps.body}',
+					'<<',
+					'{ps.description}'],
 		},
 		__noSuchMethod__: function(name, args){
 			var ps = args[0];
-			return {
-				title: (name == 'regular') ? '' : this.getTitle(ps),
-				body: eval( this.renderingTemplates[name] ).toString()
-			};
+			return apply(ps);
 		},
+		apply: function(ps) {
+			ps.title = Hatena.reprTags(ps.tags) + (ps.item || ps.page || '');
+			var fmt = expandFormat( this.renderingTemplates[ps.type].join("\n") );
+			//alert(fmt + " =====> "+eval(fmt));
+			var body = "\n\n"+eval(fmt)+"\n\n";
+			return {
+				title: ps.item,
+				body: body
+			};
+		}
 	},
-	post : function(params){
-		var content;
+	getDate : function(){
+		var timestamp = toISOTimestamp(new Date()).replace(/[^\d]/g,'');
+		return {
+			year : timestamp.substr(0,4),
+			month : timestamp.substr(4,2),
+			day : timestamp.substr(6,2),
+			date : timestamp.substr(0,8),
+			timestamp: timestamp
+		};
+	},
+	post : function(ps){
 		var self = this;
+		var date = self.getDate();
+		var user;
+		var content = {
+			title : '',
+			body : '',
+			dummy : '1',
+			mode : 'enter',
+			trivial : '0',
+			year : date.year,
+			month : date.month,
+			day : date.day,
+			date : '',
+			timestamp: date.timestamp
+		};
 		return models.Hatena.getToken().addCallback(function(token){
-			content = self.converters[params.type](params);
 			content.rkm = token;
 			return models.Hatena.getCurrentUser();
-		}).addCallback(function(id){
-			var endpoint = [self.POST_URL, id, ''].join('/');
+		}).addCallback(function(user_){ // （もしなければ）その日の日記の初回作成を行う
+			user = user_;
+			var endpoint = [self.POST_URL, user, 'edit'].join('/');
 			return request( endpoint, {
 				redirectionLimit : 0,
-				referrer    : endpoint,
+				referrer : endpoint,
 				sendContent : content
 			});
+		}).addCallback(function(res){ // その日の日記の内容を取得
+			return request( [self.POST_URL, user, 'edit?date='+date.date].join('/'), {
+				redirectionLimit : 0,
+				queryString : ''
+			});
+		}).addCallback(function(res){ // 追記してポスト
+			var doc = convertToHTMLDocument(res.responseText);
+			var body = doc.getElementById('textarea-edit').textContent;
+
+			if(ps.file) { // TODO: 一日に一つのファイルしかおけない制限がある
+				var imageurl = [self.POST_URL,'images/diary',user.substr(0,1),user,[date.year,date.month,date.day].join('-')+'.png'].join('/');
+				ps.itemUrl = imageurl;
+				body = body.replace(new RegExp(imageurl,'g'),'deleted');
+			}
+			var entry = self.converters.apply(ps);
+			content.date = date.date;
+			content.body = body + entry.body;
+			content.image = ps.file;
+			content.imagetitle = ps.item;
+			return request( [self.POST_URL, user, 'edit'].join('/'), {
+				redirectionLimit : 0,
+				referrer : res.channel.URI.asciiSpec,
+				sendContent : content
+			});
+		}).addCallback(function(res){
+			var expect = [self.POST_URL,user,date.date].join('/');
+			if (res.channel.URI.asciiSpec!=expect)
+				throw new Error(getMessage('error.post', expect + ' failed: '+res.channel.URI.asciiSpec));
 		});
 	}
 });
@@ -1847,30 +1914,26 @@ models.register({
 	check : function(ps){
 		return ps.type.match(/(regular|photo|quote|link|conversation|video)/);
 	},
-	getToken : function(){
-		return request('http://h.hatena.ne.jp/api').addCallback(function(res){
+	getTokenUsername : function(){
+        return request('http://h.hatena.ne.jp/api').addCallback(function(res){
 			var doc = convertToHTMLDocument(res.responseText);
 			var token = $x('//input[@class="forcopy"]', doc);
 			var username = $x('//p[@class="username"]/a', doc);
 			if(!token || !username)
-				throw new Error(getMessage('error.notLoggedin'));
+                throw new Error(getMessage('error.notLoggedin'));
 			return {
-				token: token.value,
-				username: username.textContent
-			}
-		});
-	},
+                token: token.value,
+                username: username.textContent
+            }
+        });
+    },
 	post : function(ps){
-		return this.getToken().addCallback(function(token){
+		return Hatena.getToken().addCallback(function(token){
 			if (!ps.description)
 				ps.description = '';
-
-			// コマンド文字列のエスケープ
-			ps.item = ps.item.replace(/=/g,'&#61').replace(/@/g,'&#64');
-
-			// 先頭タグをはてなハイクキーワードに使う。タグがなければ個人用キーワード。
-			var haikukeyword = 'id:' + token.username;
-			if (ps.tags) {
+			// 先頭タグをはてなハイクキーワードに使う。タグがなければ空文字列（= private キーワード）
+			var haikukeyword = '';
+			if (ps.tags && ps.tags.length >= 1) {
 				haikukeyword = ps.tags.shift();
 				ps.tags = Hatena.reprTags(ps.tags);
 			} else {
@@ -1886,33 +1949,59 @@ models.register({
 				], "\n", true);
 			} else if(ps.type == 'quote' || ps.type == 'link' || ps.type == 'regular') {
 				body = joinText([
-					ps.itemUrl? ('[' + ps.itemUrl + ':title='+ ps.item + ']'): ps.item,
-					' ',
+					ps.itemUrl? '['+ps.itemUrl+':title='+ps.item+']': ps.item,
 					ps.body? ">>\n"+ps.body+"\n<<": '',
+					' ',
 					ps.tags,
 					ps.description
 				], "\n", true);
 			} else if (ps.type == 'photo') {
-				body = joinText([
-					ps.itemUrl,
-					ps.pageUrl? '['+ps.pageUrl+':title='+ps.page+']': ps.item,
-					' ',
-					ps.tags,
-					ps.body,
-					ps.description], "\n", true);
+				if (!ps.file) {
+					body = joinText([
+						ps.itemUrl,
+						ps.pageUrl? '['+ps.pageUrl+':title='+ps.page+']': ps.item,
+						' ',
+						ps.tags,
+						ps.description
+					], "\n", true);
+				} else {
+					body = joinText([
+						ps.tags,
+						ps.description,
+						' ',
+						ps.pageUrl? '['+ps.pageUrl+':title='+ps.page+']': ps.item
+					], "\n", true);
+
+				}
 			} else {
 				body = joinText([ps.itemUrl, ps.item, ' ', ps.body, ps.description], "\n", true);
 			}
-			return request('http://h.hatena.ne.jp/api/statuses/update.xml', {
-				redirectionLimit : 0,
-				authorization: 'Basic '+window.btoa(token.username+':'+token.token),
-				sendContent : update({
-					status  : body,
-					keyword : haikukeyword,
-					file    : ps.file,
-					source  : 'tombloo'
-				},token),
-			});
+			if(ps.type == 'photo' && ps.file) { // ファイルは /entry では送れないので、/api を使う
+				models.HatenaHaiku.getTokenUsername().addCallback(function(tk){
+					return request('http://h.hatena.ne.jp/api/statuses/update.json', {
+	                    redirectionLimit : 0,
+	                    authorization: 'Basic '+window.btoa(tk.username+':'+tk.token),
+	                    sendContent : {
+	                        status  : body,
+							keyword : haikukeyword==''? 'id:'+tk.username: haikukeyword,
+	                        file    : ps.file,
+	                        source  : 'tombloo',
+							token   : tk.token,
+							username : tk.username
+						}
+					});
+				});
+			} else {
+				return request('http://h.hatena.ne.jp/entry', {
+					redirectionLimit : 0,
+					sendContent : {
+						body   : body,
+						word   : haikukeyword,
+						source : 'tombloo',
+						rkm    : token
+					}
+				});
+			}
 		});
 	},
 });
@@ -2074,7 +2163,6 @@ models.register({
 			return request(url, {
 				redirectionLimit : 0,
 				sendContent : update(formContents(doc), {
-					title : ps.item,
 					tag   : joinText(ps.tags, '\n'),
 				})
 			});
