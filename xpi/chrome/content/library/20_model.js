@@ -2164,6 +2164,7 @@ models.register({
 				redirectionLimit : 0,
 				sendContent : update(formContents(doc), {
 					tag   : joinText(ps.tags, '\n'),
+					title : ps.item // mediamarker側の自動タイトルづけが文字化けするので暫定的に
 				})
 			});
 		});
