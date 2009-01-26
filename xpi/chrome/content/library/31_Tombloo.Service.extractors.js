@@ -952,6 +952,21 @@ Tombloo.Service.extractors = new Repository([
 	},
 	
 	{
+		name : 'MediaWiki',
+		getItem : function(ctx, getOnly){
+			if(!hasElementClass(ctx.document.body, 'mediawiki'))
+				return;
+			var res = {
+				href: 'http://'+ ctx.host + $x('id("t-permalink")/a/@href',ctx.document)
+			};
+			if(!getOnly){
+				ctx.href  = res.href;
+			}
+			return res;
+		},
+	},
+
+	{
 		name : 'Photo - MediaWiki Thumbnail',
 		ICON : 'http://www.mediawiki.org/favicon.ico',
 		check : function(ctx){
@@ -966,16 +981,48 @@ Tombloo.Service.extractors = new Repository([
 				var xpath = (/\.svg$/i).test(ctx.link.href)?
 					'id("file")/a/img/@src':
 					'id("file")/a/@href';
-				
+				Tombloo.Service.extractors.MediaWiki.getItem(ctx);
+				var doc = convertToHTMLDocument(res.responseText);
 				return {
 					type	  : 'photo',
 					item	  : ctx.title,
-					itemUrl : $x(xpath, convertToHTMLDocument(res.responseText))
-				};
+					itemUrl   : $x(xpath, doc),
+					author    : $x('//h1/text()',doc),
+					authorUrl : res.channel.URI.asciiSpec
+ 				};
 			});
 		}
 	},
 	
+	{
+		name : 'Quote - MediaWiki',
+		ICON : 'http://www.mediawiki.org/favicon.ico',
+		check : function(ctx){
+			return hasElementClass(ctx.document.body, 'mediawiki') &&
+				ctx.selection;
+		},
+		extract : function(ctx){
+			with(Tombloo.Service.extractors){
+				MediaWiki.getItem(ctx);
+				return Quote.extract(ctx);
+			}
+		}
+	},
+
+	{
+		name : 'Link - MediaWiki',
+		ICON : 'http://www.mediawiki.org/favicon.ico',
+		check : function(ctx){
+			return hasElementClass(ctx.document.body, 'mediawiki');
+		},
+		extract : function(ctx){
+			with(Tombloo.Service.extractors){
+				MediaWiki.getItem(ctx);
+				return Link.extract(ctx);
+			}
+		}
+	},
+
 	{
 		name: 'HatenaHaiku',
 		getEntry : function(ctx){
@@ -992,21 +1039,6 @@ Tombloo.Service.extractors = new Repository([
 				authorUrl : author.href
 			};
 		}
-	},
-
-	{
-		name : 'Link - HatenaHaiku',
-		ICON : 'http://h.hatena.com/favicon.ico',
-		check : function(ctx){
-			return ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) && Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
-		},
-		extract : function(ctx){
-			var ps = Tombloo.Service.extractors.HatenaHaiku.getItem(ctx);
-			ps.type = 'link';
-			ctx.title = ps.item;
-			ctx.href = ps.itemUrl;
-			return ps;
-		},
 	},
 
 	{
@@ -1045,6 +1077,21 @@ Tombloo.Service.extractors = new Repository([
 		},
 	},
 	
+	{
+		name : 'Link - HatenaHaiku',
+		ICON : 'http://h.hatena.com/favicon.ico',
+		check : function(ctx){
+			return ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) && Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
+		},
+		extract : function(ctx){
+			var ps = Tombloo.Service.extractors.HatenaHaiku.getItem(ctx);
+			ps.type = 'link';
+			ctx.title = ps.item;
+			ctx.href = ps.itemUrl;
+			return ps;
+		},
+	},
+
 	{
 		name : 'Photo - covered',
 		ICON : 'chrome://tombloo/skin/photo.png',
