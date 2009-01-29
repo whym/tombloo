@@ -1022,7 +1022,21 @@ Tombloo.Service.extractors = new Repository([
 			}
 		}
 	},
-
+	
+	{
+		name : 'Photo - Capture MediaWiki',
+		ICON : 'http://www.mediawiki.org/favicon.ico',
+		check : function(ctx){
+			return hasElementClass(ctx.document.body, 'mediawiki');
+		},
+		extract : function(ctx){
+			with(Tombloo.Service){
+				extractors.MediaWiki.getItem(ctx);
+				return extractors['Photo - Capture'].extract(ctx);
+			}
+		}
+	},
+	
 	{
 		name: 'HatenaHaiku',
 		getEntry : function(ctx){
