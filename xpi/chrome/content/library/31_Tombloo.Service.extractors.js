@@ -956,8 +956,9 @@ Tombloo.Service.extractors = new Repository([
 		getItem : function(ctx, getOnly){
 			if(!hasElementClass(ctx.document.body, 'mediawiki'))
 				return;
+			var perm = $x('id("t-permalink")/a/@href',ctx.document);
 			var res = {
-				href: 'http://'+ ctx.host + $x('id("t-permalink")/a/@href',ctx.document)
+				href: perm? 'http://'+ ctx.host + perm: ctx.href
 			};
 			if(!getOnly){
 				ctx.href  = res.href;
