@@ -1,0 +1,16 @@
+
+.form-entry {
+  width: 200px;
+}
+.form-entry > * {
+  margin: 10px 10px;
+}
+.form-label {
+  width: 70px;
+}
+.form-pass,
+.form-text {
+  display: inline-box;
+  width: 100px;
+  height: 20px;
+}
