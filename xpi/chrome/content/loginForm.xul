@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://global/skin/" type="text/css"?>
+<?xml-stylesheet href="chrome://tombloo/content/loginForm.css" type="text/css" ?>
+
+<!DOCTYPE dialog SYSTEM "chrome://mozapps/locale/extensions/about.dtd">
+<dialog
+  id="login-form"
+	xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+  title="Login Form"
+  buttons="," onload="init();">
+  <dialogheader title="Login Form" description="login various services"/>
+  <vbox id="base">
+    <spacer id="spacer" flex="0"/>
+    <button id="accept" label="Login" image="chrome://tombloo/skin/accept.png" style="margin-top: 0.7em;padding: 0.5em 0;"/>
+    <button id="cancel" label="Cancel" image="chrome://tombloo/skin/cross.png" style="margin-top: 0.7em;padding: 0.5em 0;"/>
+  </vbox>
+<script><![CDATA[
+// chrome://tombloo/content/loginForm.xul
+
+var env = Components.classes['@brasil.to/tombloo-service;1'].getService().wrappedJSObject;
+env.extend(this, env, false);
+
+]]></script>
+<script type="application/javascript;version=1.7" src="chrome://tombloo/content/library/00_prototype.js"/>
+<script type="application/javascript;version=1.7" src="loginForm.js"/>
+<script><![CDATA[
+var ps = arguments[0];
+var posters = arguments[1];
+function init(){
+  env.signal(env, 'login-open', window);
+  var loginPanel = new LoginPanel(ps, posters);
+}
+]]></script>
+</dialog>
