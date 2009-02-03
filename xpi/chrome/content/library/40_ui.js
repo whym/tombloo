@@ -395,3 +395,16 @@ function connectToBrowser(win){
 		hooked.mouseShortcut = true;
 	}
 }
+
+var LoginForm = {
+  show : function(posters, ps){
+    openDialog(
+			'chrome://tombloo/content/loginForm.xul',
+			'chrome,alwaysRaised=yes,resizable=yes,dependent=yes', ps, posters);
+  },
+  check : function(err, name){
+   //return err.msg == "Not loggedin." && models[name].login && models[name].login_params;
+    return err.message == "Not loggedin.";
+  }
+};
+
