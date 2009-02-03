@@ -1692,8 +1692,7 @@ models.register(update({
 
   // Change Accountもあるので同調
   loginRequest : function(params){
-		var self = this;
-		return (this.getAuthCookie()? this.logout() : succeed()).addCallback(function(){
+		return (models.Hatena.getAuthCookie()? models.Hatena.logout() : succeed()).addCallback(function(){
 			return request('https://www.hatena.ne.jp/login', {
 				sendContent : {
 					name : params.username,
@@ -1703,9 +1702,14 @@ models.register(update({
 				},
 			});
 		}).addCallback(function(res){
-			self.updateSession();
-			self.user = user;
-      return res.channel.URI.spec == 'http://www.hatena.ne.jp/';
+      var doc = convertToHTMLDocument(res.responseText);
+      var form = $x('id("body")/form', doc);
+      var result = !(form);
+      if(result){
+        models.Hatena.updateSession();
+        models.Hatena.user = user;
+      }
+      return result;
 		});
 	},
 }, AbstractSessionService));

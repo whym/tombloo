@@ -69,11 +69,9 @@ LoginPanel.prototype = {
     window.close();
   },
   request: function(forms){
-    var all_height = forms.reduce(function(memo, form){
-      var height = form.remove();
-      return memo + (height-0);
-    }, 0);
-    this.element.height = (this.element.height - all_height);
+    forms.forEach(function(form){
+      form.remove();
+    });
     this.button_accept.disabled = false;
     this.button_cancel.disabled = false;
   }
@@ -116,9 +114,8 @@ LoginForm.prototype = {
     }, {});
   },
   remove: function(){
-    var height = this.element.height;
     this.element.parentNode.removeChild(this.element);
-    return height;
+    //this.element.hidden = true;
   }
 }
 
