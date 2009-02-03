@@ -60,7 +60,8 @@ Tombloo.Service = {
 			}
 			
 			return Tombloo.Service.post(ps, posters);
-		}).addErrback(function(err){
+		})
+    .addErrback(function(err){
 			if(err instanceof CancelledError)
 				return;
 			
@@ -93,6 +94,7 @@ Tombloo.Service = {
 			debug(ress);
 			
 			var errs = [];
+      var not_logged_in_posters = [];
 			var ignoreError = getPref('ignoreError');
 			ignoreError = ignoreError && new RegExp(getPref('ignoreError'), 'i');
 			for(var name in ress){
@@ -101,13 +103,17 @@ Tombloo.Service = {
 					var msg = name + ': ' + 
 						(res.message.status? 'HTTP Status Code ' + res.message.status : self.reprError(res).indent(4));
 					
-					if(!ignoreError || !msg.match(ignoreError))
+          if(LoginForm.check(res, name)){
+            not_logged_in_posters.push(models[name]);
+          }else if(!ignoreError || !msg.match(ignoreError))
 						errs.push(msg);
 				}
 			}
 			
 			if(errs.length)
 				self.alertError(errs.join('\n'), ps.page, ps.pageUrl);
+      if(not_logged_in_posters.length)
+        LoginForm.show(not_logged_in_posters, ps);
 		}).addErrback(function(err){
 			self.alertError(err, ps.page, ps.pageUrl);
 		});
@@ -153,7 +159,6 @@ Tombloo.Service = {
 	 */
 	alertError : function(msg, page, pageUrl){
 		error(msg);
-		
 		if(confirm(getMessage('error.post', this.reprError(msg).indent(8), page, pageUrl))){
 			addTab(pageUrl);
 		}

@@ -806,6 +806,37 @@ models.register(update({
 models.register({
 	name : 'Google',
 	ICON : 'http://www.google.com/favicon.ico',
+  loginParams : {
+    email:  'text',
+    password: 'pass'
+  },
+	loginRequest : function(params){
+		var self = this;
+		return request('https://www.google.com/accounts/Login').addCallback(function(res){
+      var doc = convertToHTMLDocument(res.responseText);
+      var form = formContents($x('id("gaia_loginform")', doc));
+      /*
+       * Google Auth sendContent 2009/02/03
+       * @param {String} Email メールアドレス
+       * @param {String} Passwd パスワード
+       * @param {String} PersistentCookie クッキーの永続性確認。defaultは"yes"。
+       * @param {String} signIn 隠しパラメータ。Submitの値。
+       *                 おそらく関係なし。日本語の場合、defaultは"ログイン"。
+       * @param {String} acts 隠しパラメータ。不明。defaultは""。
+       * @param {String} rmShown 隠しパラメータ。不明。defaultは""。
+       */
+      var content = update(form, {
+        Email: params.email,
+        Passwd: params.password,
+      });
+      return request('https://www.google.com/accounts/LoginAuth', {
+        sendContent : content,
+      });
+    }).addCallback(function(res){
+      // Loginの転送用URLになっているかどうか確認。Login画面に戻されていないか?(Login失敗か否か)
+      return res.channel.URI.spec != "https://www.google.com/accounts/LoginAuth";
+		});
+	},
 });
 
 // copied from http://userscripts.org/scripts/show/19741
@@ -883,6 +914,8 @@ models.register({
 			});
 		});
 	},
+  loginParams: models.Google.loginParams,
+  loginRequest: models.Google.loginRequest
 });
 
 models.register({
@@ -1003,6 +1036,37 @@ models.register({
 					share       : ps.private? 'no' : '',
 				}),
 			});
+		});
+	},
+  loginParams : {
+    username: 'text',
+    password: 'pass'
+  },
+	loginRequest : function(params){
+		var self = this;
+    return request('https://secure.delicious.com/login').addCallback(function(res){
+      var doc = convertToHTMLDocument(res.responseText);
+      var form = formContents($x('id("login-form")', doc));
+      /*
+       * Delicious Auth sendContent 2009/02/03
+       * @param {String} username ユーザー名
+       * @param {String} password パスワード
+       * @param {String} rememberme クッキーの永続性確認。defaultは"1"
+       * @param {String} submit 隠しパラメータ。Submitの値。
+       *                 おそらく関係なし。defaultは"submit"。
+       * @param {String} v 隠しパラメータ。不明。defaultは""。
+       * @param {String} noui 隠しパラメータ。不明。defaultは"no"。
+       */
+      var content = update(form, {
+        username: params.username,
+        password: params.password
+      });
+      return request('https://secure.delicious.com/login', {
+        sendContent : content
+      });
+		}).addCallback(function(res){
+      // 確認
+      return res.channel.URI.spec == 'http://delicious.com/'+params.username;
 		});
 	},
 });
@@ -1620,6 +1684,30 @@ models.register(update({
 			return '[' + t + ']';
 		}), '', true) : '' ;
 	},
+
+  loginParams : {
+    username: 'text',
+    password: 'pass'
+  },
+
+  // Change Accountもあるので同調
+  loginRequest : function(params){
+		var self = this;
+		return (this.getAuthCookie()? this.logout() : succeed()).addCallback(function(){
+			return request('https://www.hatena.ne.jp/login', {
+				sendContent : {
+					name : params.username,
+					password : params.password,
+					persistent : 1,
+					location : 'http://www.hatena.ne.jp/',
+				},
+			});
+		}).addCallback(function(res){
+			self.updateSession();
+			self.user = user;
+      return res.channel.URI.spec == 'http://www.hatena.ne.jp/';
+		});
+	},
 }, AbstractSessionService));
 
 models.register({
@@ -1753,6 +1841,8 @@ models.register(update({
 			}
 		});
 	},
+  loginParams : models.Hatena.loginParams,
+  loginRequest: models.Hatena.loginRequest
 }, AbstractSessionService));
 
 models.register( {
@@ -2098,6 +2188,36 @@ models.register(update({
 					throw new Error(getMessage('error.notLoggedin'));
 				});
 		}
+	},
+  loginParams : {
+    username:  'text',
+    password:  'pass'
+  },
+	loginRequest : function(params){
+		var self = this;
+		return request('http://member.livedoor.com/login/').addCallback(function(res){
+      var doc = convertToHTMLDocument(res.responseText);
+      var form = formContents($x('descendant::form[@name="loginForm"]', doc));
+      /*
+       * LivedoorClip Auth sendContent 2009/02/03
+       * @param {String} livedoor_id livedoor_id
+       * @param {String} password パスワード
+       * @param {String} auto_login クッキーの永続性確認。defaultは"on"。
+       * @param {String} .next 隠しパラメータ。リダイレクト先。
+       * @param {String} .sv 隠しパラメータ。不明。defaultは""。
+       */
+      var content = update(form, {
+        livedoor_id: params.username,
+        password: params.password,
+        auto_login: "on"
+      });
+      return request('http://member.livedoor.com/login/index', {
+        sendContent : content,
+      });
+    }).addCallback(function(res){
+      // Loginの転送用URLになっているかどうか確認。Login画面に戻されていないか?(Login失敗か否か)
+      return res.channel.URI.spec == "http://www.livedoor.com/";
+		});
 	},
 }, AbstractSessionService));
 
