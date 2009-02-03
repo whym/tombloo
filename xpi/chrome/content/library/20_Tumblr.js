@@ -423,6 +423,30 @@ var Tumblr = update({}, AbstractSessionService, {
 			});
 		}
 	},
+
+  loginParams : {
+    email: 'text',
+    password: 'pass'
+  },
+
+	loginRequest : function(params){
+		var self = this;
+		return request(this.TUMBLR_URL+'login', {
+			sendContent : {
+				email : params.email,
+				password : params.password,
+			}
+		}).addCallback(function(res){
+      var doc = convertToHTMLDocument(res.responseText);
+      var title = $x('descendant::title', doc);
+      var result = (title.textContent == 'Logging in...');
+      if(result){
+        self.updateSession();
+        self.user = user;
+      }
+      return result;
+		});
+	}
 });
 
 
