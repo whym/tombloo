@@ -403,7 +403,7 @@ var LoginForm = {
 			'chrome,alwaysRaised=yes,resizable=yes,dependent=yes', ps, posters);
   },
   check : function(err, name){
-    return err.msg == "Not loggedin." && models[name] && models[name].loginParams && models[name].loginRequest;
+    return (err.message == "Not loggedin." && models[name] && models[name].loginParams && models[name].loginRequest);
   }
 };
 
