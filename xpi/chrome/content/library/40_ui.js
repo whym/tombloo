@@ -400,7 +400,7 @@ var LoginForm = {
   show : function(posters, ps){
     openDialog(
 			'chrome://tombloo/content/loginForm.xul',
-			'chrome,alwaysRaised=yes,resizable=yes,dependent=yes', ps, posters);
+			'chrome,alwaysRaised=yes,dependent=yes', ps, posters);
   },
   check : function(err, name){
     return (err.message == "Not loggedin." && models[name] && models[name].loginParams && models[name].loginRequest);
