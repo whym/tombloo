@@ -20,60 +20,99 @@ function LoginPanel(ps, posters){
       df.appendChild(form.element);
       self.forms[poster.name] = form;
       return df;
-    }, document.createDocumentFragment()), getElement('spacer'));
+    }, document.createDocumentFragment()), getElement('accept'));
   });
   this.button_accept = getElement('accept');
   this.button_cancel = getElement('cancel');
-  this.button_accept.addEventListener('click', function(){ self.accept() }, false);
-  this.button_cancel.addEventListener('click', function(){ self.cancel() }, false);
+  this.accept_func = function(){ return self.accept() };
+  this.cancel_func = function(){ return self.cancel() };
+  this.connect();
 }
 
 LoginPanel.prototype = {
   login : function(){
     var self = this;
     var ds = {};
-    items(self.forms).forEach(function([key, form]){
-      ds[key] = form.poster.loginRequest(form.collect());
-    });
-    var forms = [];
+    // すべて終了後, Login Formを閉じるかどうかのflag
     var flag = true;
-    return (new DeferredHash(ds)).addCallback(function(ress){
+    // ひとつでもrequestを飛ばしたかどうかのflag
+    var request = false;
+    // formの情報をcollectして, emptyでないものに関してloginRequestを飛ばす
+    items(self.forms).forEach(function([key, form]){
+      var param = form.collect();
+      if(param){
+        request = true;
+        ds[key] = form.poster.loginRequest(param);
+      } else {
+        // fieldがemptyのものに関してはRequestを飛ばさず, flagをfalseにしておく
+        // 節約
+        flag = false;
+      }
+    });
+    var done_forms = [];
+    // loginRequestの結果を待って, 成功しているものをdone_formsに格納.
+    // this.formsから削除.
+    return (request ? (new DeferredHash(ds)).addCallback(function(ress){
       items(ress).forEach(function([key, res]){
         var result = res[1];
         if(result){
           var form = self.forms[key];
-          forms.push(form);
+          done_forms.push(form);
           delete self.forms[key];
         } else {
+          // 失敗しているものがあればflagをfalseにしておく
           flag = false;
         }
       });
-    }).addCallback(function(){
-			return Tombloo.Service.post(self.ps, forms.map(function(form){
+      // 成功したものに関して, postする
+			return Tombloo.Service.post(self.ps, done_forms.map(function(form){
         return form.poster;
       }));
-    }).addCallback(function(){
+    }) : succeed()).addCallback(function(){
+      // post終了後, flagにそってformの処理
+      // formを閉じるとscriptが停止するのでpostが終わってから
       if(flag) self.finalize();
-      else self.request(forms);
+      else self.request(done_forms);
     });
   },
   accept: function(){
+    this.disconnect();
     this.button_accept.disabled = true;
     this.button_cancel.disabled = true;
     return this.login();
   },
   cancel: function(){
+    this.disconnect();
     window.close();
   },
   finalize: function(){
     window.close();
   },
-  request: function(forms){
-    forms.forEach(function(form){
-      form.remove();
+  request: function(done_forms){
+    var self = this;
+    withDocument(document, function(){
+      var base = self.element;
+      // 削除前の高さ取得
+      var before = base.boxObject.height;
+      done_forms.forEach(function(form){
+        form.remove();
+      });
+      // 削除後の高さ取得
+      var after = base.boxObject.height;
+      // windowの高さ調整
+      window.resizeBy(0, (after - before));
+      self.connect();
+      self.button_accept.disabled = false;
+      self.button_cancel.disabled = false;
     });
-    this.button_accept.disabled = false;
-    this.button_cancel.disabled = false;
+  },
+  connect: function(){
+    this.button_accept.addEventListener('click', this.accept_func, false);
+    this.button_cancel.addEventListener('click', this.cancel_func, false);
+  },
+  disconnect: function(){
+    this.button_accept.removeEventListener('click', this.accept_func, false);
+    this.button_cancel.removeEventListener('click', this.cancel_func, false);
   }
 }
 
@@ -109,13 +148,16 @@ LoginForm.prototype = {
   collect: function(){
     var self = this;
     return keys(this.poster.loginParams).reduce(function(memo, key){
-      memo[key] = self[key].value;
+      if(memo){
+        if(!(memo[key] = self[key].value)){
+          memo = null;
+        }
+      }
       return memo;
     }, {});
   },
   remove: function(){
     this.element.parentNode.removeChild(this.element);
-    //this.element.hidden = true;
   }
 }
 
@@ -149,3 +191,4 @@ LoginForm.paramsParserTable = {
     ]);
   }
 }
+
