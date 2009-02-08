@@ -953,12 +953,15 @@ Tombloo.Service.extractors = new Repository([
 	
 	{
 		name : 'MediaWiki',
-		getItem : function(ctx, getOnly){
-			if(!hasElementClass(ctx.document.body, 'mediawiki'))
+		getItem : function(ctx, getOnly, mostrecent){
+			if (!hasElementClass(ctx.document.body, 'mediawiki'))
 				return;
-			var perm = $x('id("t-permalink")/a/@href',ctx.document);
+			var path = $x((mostrecent? 'id("printfooter")/a/@href': 'id("t-permalink")/a/@href'),
+						  ctx.document);
+			var anchor = ctx.href.split('#').pop();
+			anchor = anchor? '#'+anchor: '';
 			var res = {
-				href: perm? 'http://'+ ctx.host + perm: ctx.href
+				href: path? 'http://'+ ctx.host + path + anchor: ctx.href
 			};
 			if(!getOnly){
 				ctx.href  = res.href;
@@ -972,7 +975,7 @@ Tombloo.Service.extractors = new Repository([
 		ICON : 'http://www.mediawiki.org/favicon.ico',
 		check : function(ctx){
 			return ctx.onLink && 
-				hasElementClass(ctx.document.body, 'mediawiki') && 
+				Tombloo.Service.extractors.MediaWiki.getItem(ctx,true) &&
 				/wiki\/.+:/.test(ctx.link.href) && 
 				(/\.(svg|png|gif|jpe?g)$/i).test(ctx.link.href);
 		},
@@ -999,7 +1002,7 @@ Tombloo.Service.extractors = new Repository([
 		name : 'Quote - MediaWiki',
 		ICON : 'http://www.mediawiki.org/favicon.ico',
 		check : function(ctx){
-			return hasElementClass(ctx.document.body, 'mediawiki') &&
+			return Tombloo.Service.extractors.MediaWiki.getItem(ctx,true) &&
 				ctx.selection;
 		},
 		extract : function(ctx){
@@ -1014,7 +1017,21 @@ Tombloo.Service.extractors = new Repository([
 		name : 'Link - MediaWiki',
 		ICON : 'http://www.mediawiki.org/favicon.ico',
 		check : function(ctx){
-			return hasElementClass(ctx.document.body, 'mediawiki');
+			return Tombloo.Service.extractors.MediaWiki.getItem(ctx,true);
+		},
+		extract : function(ctx){
+			with(Tombloo.Service.extractors){
+				MediaWiki.getItem(ctx,false,true);
+				return Link.extract(ctx);
+			}
+		}
+	},
+	
+	{
+		name : 'Link - permalink - MediaWiki',
+		ICON : 'http://www.mediawiki.org/favicon.ico',
+		check : function(ctx){
+			return Tombloo.Service.extractors.MediaWiki.getItem(ctx,true);
 		},
 		extract : function(ctx){
 			with(Tombloo.Service.extractors){
@@ -1028,7 +1045,7 @@ Tombloo.Service.extractors = new Repository([
 		name : 'Photo - Capture MediaWiki',
 		ICON : 'http://www.mediawiki.org/favicon.ico',
 		check : function(ctx){
-			return hasElementClass(ctx.document.body, 'mediawiki');
+			return Tombloo.Service.extractors.MediaWiki.getItem(ctx,true);
 		},
 		extract : function(ctx){
 			with(Tombloo.Service){
