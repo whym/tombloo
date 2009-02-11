@@ -2025,18 +2025,29 @@ models.register({
         });
     },
 	getSuggestions : function(url){
-		return models.HatenaHaiku.getTokenUsername().addCallback(function(tk){
-			return request('http://h.hatena.ne.jp/' + tk.username + '/following');
+		var tags = {};
+		var tk;
+		return models.HatenaHaiku.getTokenUsername().addCallback(function(tk_){
+			tk = tk_;
+			return request('http://h.hatena.ne.jp/api/statuses/keywords/' + tk.username + '.json');
 		}).addCallback(function(res){
-			var doc = convertToHTMLDocument(res.responseText);
+			var json = evalInSandbox(res.responseText, 'http://h.hatena.ne.jp');
+			json.forEach(function(k){
+				tags[k.title] = {name: k.title, frequency: k.entry_count};
+			});
+			return request('http://h.hatena.ne.jp/api/statuses/user_timeline/' + tk.username + '.json');
+		}).addCallback(function(res){
+			var json = evalInSandbox(res.responseText, 'http://h.hatena.ne.jp');
+			json.forEach(function(s){
+				tags[s.keyword] = tags[s.keyword]? tags[s.keyword]: {name:s.keyword, frequency: -1};
+			});
+			var list = [];
+			for (var x in tags) {
+				list.push(tags[x]);
+			}
 			return {
 				duplicated : false,
-				tags : $x('//ul[@class="list-keyword"]/li/a/text()', doc, true).map(function(tag){
-					return {
-						name      : tag,
-						frequency : -1,
-					};
-				}),
+				tags : list
 			};
 		});
 	},
