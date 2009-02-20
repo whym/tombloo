@@ -1085,10 +1085,10 @@ Tombloo.Service.extractors = new Repository([
 			return ctx.onImage && ctx.href.match(/\/\/h\.hatena\.(ne\.jp|com)/) && Tombloo.Service.extractors.HatenaHaiku.getEntry(ctx);
 		},
 		extract : function(ctx){
-			return update({
+			return update(Tombloo.Service.extractors.HatenaHaiku.getItem(ctx), {
 				type    : 'photo',
 				itemUrl : ctx.target.src
-			}, Tombloo.Service.extractors.HatenaHaiku.getItem(ctx));
+			});
 		},
 	},
 
