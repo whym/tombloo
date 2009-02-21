@@ -1767,6 +1767,34 @@ models.register(update({
       return result;
 		});
 	},
+
+  loginParams : {
+    username: 'text',
+    password: 'pass'
+  },
+
+  // Change Accountもあるので同調
+  loginRequest : function(params){
+		return (models.Hatena.getAuthCookie()? models.Hatena.logout() : succeed()).addCallback(function(){
+			return request('https://www.hatena.ne.jp/login', {
+				sendContent : {
+					name : params.username,
+					password : params.password,
+					persistent : 1,
+					location : 'http://www.hatena.ne.jp/',
+				},
+			});
+		}).addCallback(function(res){
+      var doc = convertToHTMLDocument(res.responseText);
+      var form = $x('id("body")/form', doc);
+      var result = !(form);
+      if(result){
+        models.Hatena.updateSession();
+        models.Hatena.user = user;
+      }
+      return result;
+		});
+	},
 }, AbstractSessionService));
 
 models.register({
