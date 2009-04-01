@@ -705,7 +705,7 @@ models.register({
 
 models.register(update({}, AbstractSessionService, {
 	name : 'Rejaw',
-	ICON : 'http://rejaw.com/images/logo/favicon.ico',
+	ICON : 'http://rejaw.com/favicon.ico',
 
 	check : function(ps){
 		return (/(regular|photo|quote|link|conversation|video)/).test(ps.type) && !ps.file;
@@ -935,6 +935,8 @@ models.register({
 				});
 			}).addCallback(function(res){
 				var doc = convertToHTMLDocument(res.responseText);
+				if(!doc.getElementById('title'))
+					throw new Error(getMessage('error.notLoggedin'));
 				
 				function getTags(part){
 					return $x('id("save-' + part + '-tags")//a[contains(@class, "tag-list-tag")]/text()', doc, true);
@@ -942,10 +944,10 @@ models.register({
 				return {
 					editPage : editPage = 'http://delicious.com/save?url=' + url,
 					form : {
-						item        : $x('id("title")', doc).value,
-						description : $x('id("notes")', doc).value,
-						tags        : $x('id("tags")', doc).value.split(' '),
-						private     : $x('id("share")', doc).checked,
+						item        : doc.getElementById('title').value,
+						description : doc.getElementById('notes').value,
+						tags        : doc.getElementById('tags').value.split(' '),
+						private     : doc.getElementById('share').checked,
 					},
 					
 					duplicated : !!doc.getElementById('delete'),
@@ -969,6 +971,7 @@ models.register({
 	},
 	
 	getCurrentUser : function(){
+		// FIXME: 判定不完全、_userが取得できて、かつ、ログアウトしている状態がありうる
 		if(decodeURIComponent(getCookieString('delicious.com', '_user')).match(/user=(.*?) /))
 			return RegExp.$1;
 		
@@ -1283,6 +1286,61 @@ models.register(update({
 }, AbstractSessionService));
 
 
+models.register({
+	name : 'Remember The Milk',
+	ICON : 'http://www.rememberthemilk.com/favicon.ico',
+	POST_URL: 'http://www.rememberthemilk.com/services/ext/addtask.rtm',
+	
+	check : function(ps){
+		return (/(regular|link)/).test(ps.type) && !ps.file;
+	},
+	
+	post : function(ps){
+		return this.addSimpleTask(
+			joinText([ps.item, ps.body, ps.description], ' ', true), 
+			ps.date, ps.tags);
+	},
+	
+	/**
+	 * 簡単なタスクを追加する。
+	 * ブックマークレットのフォーム相当の機能を持つ。
+	 *
+	 * @param {String} task タスク名。
+	 * @param {Date} due 期日。未指定の場合、当日になる。
+	 * @param {Array} tags タグ。
+	 * @param {String || Number} list 
+	 *        追加先のリスト。リスト名またはリストID。未指定の場合、デフォルトのリストとなる。
+	 */
+	addSimpleTask : function(task, due, tags, list){
+		var self = this;
+		return request(self.POST_URL).addCallback(function(res){
+			var doc = convertToHTMLDocument(res.responseText);
+			if(!doc.getElementById('miniform'))
+				throw new Error(getMessage('error.notLoggedin'));
+			
+			var form = formContents(doc);
+			if(list){
+				forEach($x('id("l")/option', doc, true), function(option){
+					if(option.textContent == list){
+						list = option.value;
+						throw StopIteration;
+					}
+				})
+				form.l = list;
+			}
+			
+			return request(self.POST_URL, {
+				sendContent : update(form, {
+					't'  : task,
+					'tx' : joinText(tags, ','),
+					'd'  : (due || new Date()).toLocaleFormat('%Y-%m-%d'),
+				}),
+			});
+		});
+	}
+});
+
+
 // http://www.kawa.net/works/ajax/romanize/japanese.html
 models.register({
 	name : 'Kawa',
@@ -1297,7 +1355,7 @@ models.register({
 				q : text,
 			},
 		}).addCallback(function(res){
-			return map(function(s){	
+			return map(function(s){
 				return ''+s.@title || ''+s;
 			}, convertToXML(res.responseText).li.span);
 		});
@@ -2087,7 +2145,11 @@ models.register(update({
 		
 		case 'changed':
 			var self = this;
-				return request(LivedoorClip.POST_URL+'?link=http%3A%2F%2Ftombloo/').addCallback(function(res){
+				return request(LivedoorClip.POST_URL, {
+					queryString : {
+						link : 'http://tombloo/',
+					},
+				}).addCallback(function(res){
 					if(res.responseText.match(/"postkey" value="(.*)"/)){
 						self.token = RegExp.$1;
 						return self.token;
@@ -2218,6 +2280,23 @@ models.register({
 					masstags :	joinText(ps.tags, ','),
 				}),
 			});
+		});
+	}
+});
+
+models.register({
+	name : '8tracks',
+	ICON : 'http://8tracks.com/favicon.ico',
+	URL  : 'http://8tracks.com',
+	
+	upload : function(file){
+		return request(this.URL + '/tracks', {
+			redirectionLimit : 0,
+			sendContent : {
+				'attachment_data[]' : getLocalFile(file),
+			},
+		}).addBoth(function(res){
+			log(res);
 		});
 	}
 });
