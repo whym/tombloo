@@ -585,6 +585,10 @@ function TagsPanel(elmPanel, formPanel){
 			new ChekboxPanel(self.elmSuggestion, self);
 		}
 		
+		// extractorがタグを指定していた場合はセットする
+		if(ps.tags){
+			self.formPanel.populateFields({tags: ps.tags});
+		}
 		// linkタイプの場合、既ブックマークかの判定も行うため必ずタグを取得する
 		// それ以外のタイプの場合、キャッシュがあればそれを使う
 		if(self.suggest || !QuickPostForm.candidates.length){
@@ -595,7 +599,7 @@ function TagsPanel(elmPanel, formPanel){
 				if(self.suggest){
 					self.showSuggestions(res);
 				}
-				
+			
 				if(res.duplicated){
 					self.formPanel.populateFields(res.form);
 					self.showBookmarked(res.editPage);
@@ -722,7 +726,7 @@ TagsPanel.prototype = {
 			return;
 		
 		var self = this;
-		this.comvertToCandidates(tags).addCallback(function(cands){
+		this.convertToCandidates(tags).addCallback(function(cands){
 			self.elmCompletion.candidates = cands;
 			QuickPostForm.candidates = cands;
 		});
@@ -736,7 +740,7 @@ TagsPanel.prototype = {
 		});
 	},
 	
-	comvertToCandidates : function(tags){
+	convertToCandidates : function(tags){
 		// 各タグサービスで使われてるデリミタを合成
 		var source = tags.join(' [');
 		var d;
@@ -765,7 +769,7 @@ TagsPanel.prototype = {
 		if(!tags || !tags.length)
 			return;
 		
-		this.comvertToCandidates(tags).addCallback(function(newCands){
+		this.convertToCandidates(tags).addCallback(function(newCands){
 			var memo = {};
 			var cands = []
 			QuickPostForm.candidates.concat(newCands).forEach(function(cand){
