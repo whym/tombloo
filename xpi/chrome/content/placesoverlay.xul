@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<overlay xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+	<commandset id="placesCommands">
+		<command id="tomblooPlacesPostAsLink" oncommand="tombloo_places_post_as_link.apply(this,arguments);" />
+	</commandset>
+
+
+	<popup id="placesContext">
+		<menuseparator insertafter="placesContext_openSeparator" />
+		<menuitem id="tomblooPlacesPostAsLink"
+		label="Post with Tombloo"
+		command="tomblooPlacesPostAsLink"
+		insertafter="placesContext_openSeparator"
+		selectiontype="single|multiple"
+		selection="bookmark"
+		forcehideselection="livemarkChild|livemark/feedURI|PlacesOrganizer/OrganizerQuery" />
+	</popup>
+
+<script type="text/javascript; version=1.7"><![CDATA[
+	function tombloo_places_post_as_link (ev) {
+		var env = Cc['@brasil.to/tombloo-service;1'].getService().wrappedJSObject;
+		env.Tombloo.Service.Link.postSelectedPlacesItems(ev);
+	}
+]]></script>
+
+</overlay>

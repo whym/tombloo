@@ -334,3 +334,60 @@ Tombloo.Service.Photo = {
 		return d;
 	},
 }
+
+Tombloo.Service.Link = {
+	extractor: {
+		extract: function (context) {
+			var window = context.window;
+			var document = context.document;
+			var PlacesUtils = window.PlacesUtils;
+			var DESCRIPTION_ANNO = window.DESCRIPTION_ANNO;
+
+			var item = context.placesItem;
+			var tags = item.tags ? item.tags.split(/,\s*/) : [];
+			var desc = '';
+			try {
+				desc = PlacesUtils.annotations.getItemAnnotation(item.itemId, DESCRIPTION_ANNO);
+			} catch(e){}
+
+			var d =  {
+				type:		'link',
+				page:		item.title,
+				pageUrl: 	item.uri,
+				item:		item.title,
+				itemUrl:	item.uri,
+				tags : 		tags,
+				description: desc
+			};
+
+			log(d);
+			return d;
+		}
+	},
+	postSelectedPlacesItems: function (ev) {
+		// this window is places.xul.
+		var window = ev.view;
+		var document = window.document;
+		var PlacesUIUtils = window.PlacesUIUtils;
+		var view = PlacesUIUtils.getViewForNode(document.popupNode);
+
+		var items = view.selectedNode ?
+				[view.selectedNode] :
+			    document.getElementById("placeContent").getSelectionNodes();
+		
+		var extractor = this.extractor;
+		var showForm = true;
+		items.map ( function (item) {
+			var placesContext = {
+				document: document,
+				window: window,
+				placesItem: item
+			};
+			Tombloo.Service.share(placesContext, extractor, showForm);
+		} );
+
+	},
+	postPlacesItems: function (ev) {
+		this.postSelectedPlacesItems(ev);
+	}
+}
