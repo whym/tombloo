@@ -592,25 +592,64 @@ function TagsPanel(elmPanel, formPanel){
 		// linkタイプの場合、既ブックマークかの判定も行うため必ずタグを取得する
 		// それ以外のタイプの場合、キャッシュがあればそれを使う
 		if(self.suggest || !QuickPostForm.candidates.length){
-			models[self.tagProvider].getSuggestions(ps.itemUrl).addCallback(function(res){
-				self.arrangeSuggestions(res);
-				self.setTags(res.tags);
+			self.responses = {};
+			self.timers = {};
+			self.tagProviders = self.tagProvider.split(',').map(function(x){return x.replace(/\s/g,'');});
+			self.tagProviders.forEach(function(tagProv){
+				self.timers[tagProv] = setInterval(function(){
+					for each ( var p in self.tagProviders ) {
+						var res = self.responses[p];
+						if ( !res ) {
+							//alert(tagProv+" waits for "+p);
+							return;
+						}
+					}
+
+					var _res = {tags: [], recommended: [], popular: []};
+					for each ( var p in self.tagProviders ) {
+						clearInterval(self.timers[p]);
+						var res = self.responses[p];
+						self.arrangeSuggestions(res);
+						for each ( var a in ["tags","recommended","popular"]) {
+							_res[a] = _res[a].concat(res[a]);
+						}
+					}
+					self.setTags(_res.tags);
+					if(self.suggest){
+						self.showSuggestions(_res.recommended, _res.popular);
+					}
+					for each ( var res in self.responses ) {
+						if(res.duplicated){
+							self.formPanel.populateFields(res.form);
+							self.showBookmarked(res.editPage);
+							break;
+						}
+					}
+					self.responses = {};
+					self.finishLoading();
+				},500);
 				
-				if(self.suggest){
-					self.showSuggestions(res);
-				}
-			
-				if(res.duplicated){
-					self.formPanel.populateFields(res.form);
-					self.showBookmarked(res.editPage);
-				}
-			}).addErrback(function(e){
-				setTimeout(function(){
-					alert(self.tagProvider + ': ' + e.message);
-				}, 50);
-				error(e);
-			}).addBoth(function(){
-				self.finishLoading();
+				models[tagProv].getSuggestions(ps.itemUrl).addCallback(function(res){
+					self.responses[tagProv] = res;
+				}).addErrback(function(e){
+					setTimeout(function(){
+						alert(tagProv + ': ' + e.message);
+					}, 50);
+					error(e);
+				}).addBoth(function(){
+					setTimeout(function(){
+						for each ( var p in self.tagProviders ) {
+							if ( !self.responses[p] ) {
+								self.responses[p] = {
+									tags: [],
+									recommended: [],
+									popular: []
+								};
+								clearInterval(self.timers[p]);
+							}
+						}
+					}, 18000);
+				});
 			});
 		}
 	}, false);
@@ -665,7 +704,7 @@ TagsPanel.prototype = {
 		res.tags = tags;
 	},
 	
-	showSuggestions : function(res){
+	showSuggestions : function(tagSets){
 		var self = this;
 		withDocument(document, function(){
 			
@@ -673,11 +712,11 @@ TagsPanel.prototype = {
 			self.elmTags = {};
 			
 			var i = 0;
-			for each(var prop in ['recommended', 'popular']){
+			for each(var tags in tagSets){
 				if(i++ && self.elmTags.length)
 					self.elmSuggestion.appendChild(SPACER());
 				
-				res[prop].forEach(function(tag){
+				tags.forEach(function(tag){
 					// この処理でパネルが延びるがロックしないため詳細ボックスが縮む。
 					// ロード時に開く場合、詳細ボックスはタグパネルの大きさも含んでいるため、
 					// 最終的に前回と同程度の大きさと間隔に復元される。

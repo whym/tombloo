@@ -120,7 +120,7 @@
 							</row>
 							<row align="center" style="margin-top: 0.7em;">
 								<label value="&label.tagProvider;" />
-								<radiogroup preference="tagProvider" />
+								<textbox preference="tagProvider" />
 							</row>
 							<row align="center" style="margin: 0.7em 0 0.5em 0;">
 								<label value="&label.tagAutoComplete;" />
@@ -253,7 +253,7 @@
 		var tagProvider = document.getElementsByAttribute('preference', 'tagProvider')[0];
 		for(var name in models)
 			if(models[name].getSuggestions)
-				tagProvider.appendItem(name, name).setAttribute('src', models[name].ICON);
+				tagProvider.setAttribute('value', tagProvider.getAttribute('value')+','+name);
 		
 		window.addEventListener('load', function(){
 			// スクリプト実行時点でprefpaneのコンストラクターからvalueが先に与えられているため、
@@ -477,7 +477,7 @@
 		// MacではOK/キャンセルが表示されないため無条件にunloadで保存する
 		var tree = new PosterTree(document.getElementById('posters'));
 		window.addEventListener(AppInfo.OS.indexOf('WIN') == 0? 'beforeaccept' : 'unload', function(e){
-			tree.save()
+			tree.save();
 		}, true);
 		
 		// beforeaccept時点ではpreferenceが更新されていないためunloadを使う
